@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aivory-monitor"
+version = "1.0.0"
+description = "AIVory Monitor Python Agent - Remote debugging with AI-powered fix generation"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "ILSCIPIO GmbH", email = "info@ilscipio.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Debuggers",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "websockets>=11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "mypy>=1.0",
+    "ruff>=0.1",
+]
+django = [
+    "django>=3.2",
+]
+flask = [
+    "flask>=2.0",
+]
+fastapi = [
+    "fastapi>=0.100",
+    "starlette>=0.27",
+]
+
+[project.urls]
+Homepage = "https://aivory.net"
+Documentation = "https://docs.aivory.net/monitor/python"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aivory_monitor*"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
