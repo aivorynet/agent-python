@@ -47,8 +47,10 @@ fastapi = [
 ]
 
 [project.urls]
-Homepage = "https://aivory.net"
+Homepage = "https://aivory.net/monitor/"
+Repository = "https://github.com/aivorynet/agent-python"
 Documentation = "https://docs.aivory.net/monitor/python"
+"Bug Tracker" = "https://github.com/aivorynet/agent-python/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
