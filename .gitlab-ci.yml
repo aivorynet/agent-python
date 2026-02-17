@@ -45,3 +45,4 @@ publish:
     - twine upload dist/*
   variables:
     TWINE_USERNAME: __token__
+    TWINE_PASSWORD: $PYPI_TOKEN
