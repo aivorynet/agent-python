@@ -7,6 +7,7 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,4 +16,4 @@ jobs:
       - run: pip install ruff
       - run: ruff check .
       - run: pip install -e ".[dev]"
-      - run: pytest
+      - run: pytest -x --tb=short
