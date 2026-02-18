@@ -18,7 +18,7 @@ class FlaskIntegration:
 
     def init_app(self, app: 'Flask') -> None:
         """Initialize the Flask application with AIVory Monitor."""
-        from flask import g, request
+        from flask import g  # noqa: F811
 
         # Register error handler
         @app.errorhandler(Exception)

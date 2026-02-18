@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import traceback
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
