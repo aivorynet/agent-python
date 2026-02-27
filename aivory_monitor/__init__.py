@@ -21,7 +21,7 @@ Usage:
 from .config import AgentConfig
 from .agent import AIVoryAgent
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 __all__ = [
     'init',
     'shutdown',
@@ -50,7 +50,7 @@ def init(
 
     Args:
         api_key: AIVory API key (or set AIVORY_API_KEY env var)
-        backend_url: Backend WebSocket URL (default: wss://api.aivory.net/ws/agent)
+        backend_url: Backend WebSocket URL (default: wss://api.aivory.net/monitor/agent)
         environment: Environment name (default: production)
         sampling_rate: Exception sampling rate 0.0-1.0 (default: 1.0)
         max_capture_depth: Maximum depth for variable capture (default: 3)

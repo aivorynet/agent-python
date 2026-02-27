@@ -206,7 +206,7 @@ class BackendConnection:
             'agent_id': self.config.agent_id,
             'hostname': self.config.hostname,
             'environment': self.config.environment,
-            'agent_version': '1.0.0',
+            'agent_version': '1.0.1',
             **self.config.get_runtime_info(),
         }
 

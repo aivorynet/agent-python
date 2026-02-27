@@ -39,7 +39,7 @@ class AgentConfig:
         """Apply defaults from environment variables."""
         self.api_key = self.api_key or os.environ.get('AIVORY_API_KEY', '')
         self.backend_url = self.backend_url or os.environ.get(
-            'AIVORY_BACKEND_URL', 'wss://api.aivory.net/ws/agent'
+            'AIVORY_BACKEND_URL', 'wss://api.aivory.net/monitor/agent'
         )
         self.environment = self.environment or os.environ.get('AIVORY_ENVIRONMENT', 'production')
         self.sampling_rate = self.sampling_rate if self.sampling_rate is not None else float(

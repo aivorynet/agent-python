@@ -4,6 +4,11 @@ All notable changes to the AIVory Monitor Python Agent will be documented in thi
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-02-27
+
+### Changed
+- Updated WebSocket endpoint to `wss://api.aivory.net/monitor/agent`
+
 ## [1.0.0] - 2026-02-16
 
 ### Added
