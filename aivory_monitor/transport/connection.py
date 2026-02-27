@@ -9,7 +9,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 try:
-    import websockets
+    import websockets  # noqa: F401
     from websockets.sync.client import connect as ws_connect
     HAS_WEBSOCKETS = True
 except ImportError:
