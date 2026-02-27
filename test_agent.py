@@ -11,8 +11,8 @@ import aivory_monitor
 
 # Initialize agent with local backend using REAL token from database
 aivory_monitor.init(
-    api_key='aiv_mon_3c81a299de5f4ebfa9219e6a',  # Real token for org test_20
-    backend_url='ws://localhost:19999/ws/monitor/agent',
+    api_key='aiv_mon_ae6dba5c7b6647c58eb1f27c',  # Real token for org test_20
+    backend_url='ws://localhost:8080/ws/monitor/agent',
     environment='development',
     debug=True,
 )

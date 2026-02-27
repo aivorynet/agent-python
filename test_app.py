@@ -13,7 +13,7 @@ import aivory_monitor
 
 # Initialize agent
 aivory_monitor.init(
-    api_key='aiv_mon_3c81a299de5f4ebfa9219e6a',
+    api_key='aiv_mon_ae6dba5c7b6647c58eb1f27c',
     backend_url='ws://localhost:8080/ws/monitor/agent',
     environment='development',
     debug=True,

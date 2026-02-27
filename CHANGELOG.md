@@ -4,6 +4,15 @@ All notable changes to the AIVory Monitor Python Agent will be documented in thi
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-02-27
+
+### Fixed
+- WebSocket connection stability: replaced `socket.settimeout()` with `recv(timeout=1.0)` to prevent the websockets internal thread from terminating on idle timeouts
+- Restored `send_exception` payload construction (regression caused silent JSON serialization failure)
+- Restored `send_breakpoint_hit` breakpoint ID and agent ID in payload
+- Restored exponential backoff reconnect counter increment
+- Restored auth error handling to correctly stop reconnection on `auth_error`/`invalid_api_key`
+
 ## [1.0.1] - 2026-02-27
 
 ### Changed

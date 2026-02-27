@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aivory-monitor"
-version = "1.0.1"
+version = "1.0.2"
 description = "AIVory Monitor Python Agent - Remote debugging with AI-powered fix generation"
 readme = "README.md"
 license = {text = "MIT"}

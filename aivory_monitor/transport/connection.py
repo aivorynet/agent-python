@@ -204,7 +204,7 @@ class BackendConnection:
             'agent_id': self.config.agent_id,
             'hostname': self.config.hostname,
             'environment': self.config.environment,
-            'agent_version': '1.0.1',
+            'agent_version': '1.0.2',
             **runtime_info,
         }
         message = {
