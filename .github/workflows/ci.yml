@@ -22,13 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
       - name: Read version and tag if new
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           VERSION=$(python -c "import re; content=open('aivory_monitor/__init__.py').read(); print(re.search(r\"__version__\s*=\s*'([^']+)'\", content).group(1))")
           TAG="v${VERSION}"
