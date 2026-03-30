@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from types import FrameType
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -161,7 +161,11 @@ class TraceManager:
         line_number = frame.f_lineno
         for breakpoint in file_breakpoints:
             if breakpoint.line_number == line_number:
-                self._handle_breakpoint_hit(breakpoint, frame)
+                try:
+                    self._handle_breakpoint_hit(breakpoint, frame)
+                except Exception as e:
+                    if self.config.debug:
+                        print(f'[AIVory Monitor] Error in breakpoint handler: {e}')
 
         return self._trace_callback
 
@@ -195,7 +199,7 @@ class TraceManager:
 
         # Send to backend
         self.connection.send_breakpoint_hit(breakpoint.backend_id, {
-            'captured_at': datetime.utcnow().isoformat() + 'Z',
+            'captured_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             'file_path': breakpoint.file_path,
             'line_number': breakpoint.line_number,
             'stack_trace': stack_trace,

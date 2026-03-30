@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
@@ -102,11 +103,11 @@ def configure_django_logging() -> dict[str, Any]:
     }
 
 
-class AIVoryLoggingHandler:
+class AIVoryLoggingHandler(logging.Handler):
     """Python logging handler that sends errors to AIVory Monitor."""
 
     def __init__(self, level: int = 40) -> None:  # 40 = ERROR
-        self.level = level
+        super().__init__(level)
 
     def emit(self, record: Any) -> None:
         """Emit a log record."""

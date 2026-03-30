@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import os
 import platform
 import random
@@ -11,6 +12,10 @@ import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+# Per-request/task context vars — safe for both threaded WSGI and asyncio
+_context_var: contextvars.ContextVar[dict] = contextvars.ContextVar('aivory_context', default={})
+_user_var: contextvars.ContextVar[dict] = contextvars.ContextVar('aivory_user', default={})
 
 
 @dataclass
@@ -31,15 +36,11 @@ class AgentConfig:
     hostname: str = field(default_factory=socket.gethostname)
     agent_id: str = field(default_factory=lambda: f"agent-{hex(int(time.time()))[2:]}-{secrets.token_hex(4)}")
 
-    # Custom context
-    _custom_context: dict = field(default_factory=dict, repr=False)
-    _user: dict = field(default_factory=dict, repr=False)
-
     def __post_init__(self) -> None:
         """Apply defaults from environment variables."""
         self.api_key = self.api_key or os.environ.get('AIVORY_API_KEY', '')
         self.backend_url = self.backend_url or os.environ.get(
-            'AIVORY_BACKEND_URL', 'wss://api.aivory.net/monitor/agent'
+            'AIVORY_BACKEND_URL', 'wss://api.aivory.net/ws/agent'
         )
         self.environment = self.environment or os.environ.get('AIVORY_ENVIRONMENT', 'production')
         self.sampling_rate = self.sampling_rate if self.sampling_rate is not None else float(
@@ -55,7 +56,7 @@ class AgentConfig:
             os.environ.get('AIVORY_MAX_COLLECTION_SIZE', '100')
         )
         self.enable_breakpoints = self.enable_breakpoints if self.enable_breakpoints is not None else (
-            os.environ.get('AIVORY_ENABLE_BREAKPOINTS', 'true').lower() != 'false'
+            os.environ.get('AIVORY_ENABLE_BREAKPOINTS', 'false').lower() == 'true'
         )
         self.debug = self.debug if self.debug is not None else (
             os.environ.get('AIVORY_DEBUG', 'false').lower() == 'true'
@@ -70,12 +71,12 @@ class AgentConfig:
         return random.random() < self.sampling_rate
 
     def set_custom_context(self, context: dict) -> None:
-        """Set custom context data."""
-        self._custom_context = dict(context)
+        """Set custom context data (per-thread/task via contextvars)."""
+        _context_var.set(dict(context))
 
     def get_custom_context(self) -> dict:
-        """Get custom context data."""
-        return dict(self._custom_context)
+        """Get custom context data (per-thread/task via contextvars)."""
+        return dict(_context_var.get())
 
     def set_user(
         self,
@@ -83,18 +84,19 @@ class AgentConfig:
         email: str | None = None,
         username: str | None = None,
     ) -> None:
-        """Set current user information."""
-        self._user = {}
+        """Set current user information (per-thread/task via contextvars)."""
+        user: dict = {}
         if user_id:
-            self._user['id'] = user_id
+            user['id'] = user_id
         if email:
-            self._user['email'] = email
+            user['email'] = email
         if username:
-            self._user['username'] = username
+            user['username'] = username
+        _user_var.set(user)
 
     def get_user(self) -> dict:
-        """Get current user information."""
-        return dict(self._user)
+        """Get current user information (per-thread/task via contextvars)."""
+        return dict(_user_var.get())
 
     def get_runtime_info(self) -> dict[str, Any]:
         """Get Python runtime information."""

@@ -45,8 +45,8 @@ class AIVoryAgent:
 
         # Register cleanup handlers
         atexit.register(self._cleanup)
-        signal.signal(signal.SIGTERM, self._signal_handler)
-        signal.signal(signal.SIGINT, self._signal_handler)
+        self._prev_sigterm = signal.signal(signal.SIGTERM, self._signal_handler)
+        self._prev_sigint = signal.signal(signal.SIGINT, self._signal_handler)
 
         self._started = True
 
@@ -86,4 +86,10 @@ class AIVoryAgent:
     def _signal_handler(self, signum: int, frame: object) -> None:
         """Handle shutdown signals."""
         self.stop()
-        sys.exit(0)
+
+        # Chain to previous handler
+        prev = self._prev_sigterm if signum == signal.SIGTERM else self._prev_sigint
+        if callable(prev) and prev not in (signal.SIG_DFL, signal.SIG_IGN):
+            prev(signum, frame)
+        else:
+            sys.exit(0)

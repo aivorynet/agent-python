@@ -18,18 +18,16 @@ class FlaskIntegration:
 
     def init_app(self, app: 'Flask') -> None:
         """Initialize the Flask application with AIVory Monitor."""
-        from flask import g  # noqa: F811
+        from flask import g, got_request_exception
 
-        # Register error handler
-        @app.errorhandler(Exception)
-        def handle_exception(error: Exception) -> Any:
+        # Use got_request_exception signal instead of @errorhandler(Exception)
+        # so we don't override the user's own error handlers
+        def _capture_exception(sender: Any, exception: Exception, **kwargs: Any) -> None:
             import aivory_monitor
-
             context = self._build_request_context()
-            aivory_monitor.capture_exception(error, {'request': context})
+            aivory_monitor.capture_exception(exception, {'request': context})
 
-            # Re-raise to let Flask handle the response
-            raise error
+        got_request_exception.connect(_capture_exception, app)
 
         # Set context before each request
         @app.before_request

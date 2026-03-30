@@ -9,7 +9,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 try:
-    import websockets  # noqa: F401
+    import websockets
     from websockets.sync.client import connect as ws_connect
     HAS_WEBSOCKETS = True
 except ImportError:
@@ -29,13 +29,14 @@ class BackendConnection:
         self._connected = False
         self._authenticated = False
         self._reconnect_attempts = 0
-        self._max_reconnect_attempts = 10
         self._reconnect_delay = 1.0
         self._message_queue = queue.Queue(maxsize=100)
         self._send_thread = None
         self._receive_thread = None
         self._heartbeat_thread = None
+        self._heartbeat_stop = threading.Event()
         self._shutdown = threading.Event()
+        self._ws_lock = threading.Lock()
         self._breakpoint_callback = None
 
     def connect(self) -> None:
@@ -51,6 +52,7 @@ class BackendConnection:
     def disconnect(self) -> None:
         """Disconnect from the backend."""
         self._shutdown.set()
+        self._heartbeat_stop.set()
         self._connected = False
         self._authenticated = False
         if self._ws:
@@ -85,6 +87,20 @@ class BackendConnection:
         """Check if connected and authenticated."""
         return self._connected and self._authenticated
 
+    def _enqueue(self, json_msg: str) -> None:
+        """Enqueue a message, dropping the oldest if full."""
+        try:
+            self._message_queue.put_nowait(json_msg)
+        except queue.Full:
+            try:
+                self._message_queue.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                self._message_queue.put_nowait(json_msg)
+            except queue.Full:
+                pass
+
     def _send(self, msg_type: str, payload: dict[str, Any]) -> None:
         """Queue a message for sending."""
         message = {
@@ -94,45 +110,26 @@ class BackendConnection:
         }
         json_msg = json.dumps(message)
 
-        if self._connected and self._authenticated:
-            try:
-                self._ws.send(json_msg)
-                # Flush any queued messages
-                while True:
-                    try:
-                        queued = self._message_queue.get_nowait()
-                        self._ws.send(queued)
-                    except queue.Empty:
-                        break
-            except Exception as e:
-                if self.config.debug:
-                    print(f'[AIVory Monitor] Failed to send message: {e}')
+        with self._ws_lock:
+            if self._connected and self._authenticated and self._ws:
                 try:
-                    self._message_queue.put_nowait(json_msg)
-                except queue.Full:
-                    try:
-                        self._message_queue.get_nowait()
-                    except queue.Empty:
-                        pass
-                    try:
-                        self._message_queue.put_nowait(json_msg)
-                    except queue.Full:
-                        pass
-        else:
-            try:
-                self._message_queue.put_nowait(json_msg)
-            except queue.Full:
-                try:
-                    self._message_queue.get_nowait()
-                except queue.Empty:
-                    pass
-                try:
-                    self._message_queue.put_nowait(json_msg)
-                except queue.Full:
-                    pass
+                    self._ws.send(json_msg)
+                    # Flush any queued messages
+                    while True:
+                        try:
+                            queued = self._message_queue.get_nowait()
+                            self._ws.send(queued)
+                        except queue.Empty:
+                            break
+                except Exception as e:
+                    if self.config.debug:
+                        print(f'[AIVory Monitor] Failed to send message: {e}')
+                    self._enqueue(json_msg)
+            else:
+                self._enqueue(json_msg)
 
     def _connection_loop(self) -> None:
-        """Main connection loop running in background thread."""
+        """Main connection loop running in background thread — retries indefinitely."""
         while not self._shutdown.is_set():
             try:
                 self._connect_and_run()
@@ -144,14 +141,15 @@ class BackendConnection:
                 return
 
             self._reconnect_attempts += 1
-            if self._reconnect_attempts >= self._max_reconnect_attempts:
-                print('[AIVory Monitor] Max reconnect attempts reached')
-                return
+            delay = min(self._reconnect_delay * (2 ** min(self._reconnect_attempts - 1, 6)), 60.0)
 
-            delay = min(self._reconnect_delay * (2 ** (self._reconnect_attempts - 1)), 60.0)
-
-            if self.config.debug:
-                print(f'[AIVory Monitor] Reconnecting in {delay}s (attempt {self._reconnect_attempts})')
+            # Warn periodically (not just in debug mode)
+            if self._reconnect_attempts in (1, 5, 10) or self._reconnect_attempts % 50 == 0:
+                print(
+                    f'[AIVory Monitor] Connection lost, reconnecting '
+                    f'(attempt {self._reconnect_attempts}, next retry in {delay:.0f}s) '
+                    f'to {self.config.backend_url}'
+                )
 
             self._shutdown.wait(delay)
 
@@ -164,6 +162,9 @@ class BackendConnection:
             'Authorization': 'Bearer ' + self.config.api_key,
         }
 
+        # Stop any previous heartbeat thread before establishing new connection
+        self._heartbeat_stop.set()
+
         with ws_connect(self.config.backend_url, additional_headers=headers) as ws:
             self._ws = ws
             self._connected = True
@@ -174,8 +175,27 @@ class BackendConnection:
 
             self._authenticate()
 
+            # Wait for registration confirmation before starting main loop
+            auth_deadline = time.time() + 10.0
+            while not self._authenticated and not self._shutdown.is_set():
+                try:
+                    message = self._ws.recv(timeout=1.0)
+                    self._handle_message(message)
+                except TimeoutError:
+                    pass
+                if time.time() > auth_deadline:
+                    raise TimeoutError(
+                        'Authentication timeout - no registered response from backend'
+                    )
+
+            if self._shutdown.is_set():
+                return
+
+            # Start a fresh heartbeat thread for this connection
+            self._heartbeat_stop = threading.Event()
+            stop = self._heartbeat_stop
             self._heartbeat_thread = threading.Thread(
-                target=self._heartbeat_loop, daemon=True
+                target=self._heartbeat_loop, args=(stop,), daemon=True
             )
             self._heartbeat_thread.start()
 
@@ -195,16 +215,19 @@ class BackendConnection:
 
         self._connected = False
         self._authenticated = False
+        self._heartbeat_stop.set()
 
     def _authenticate(self) -> None:
         """Send authentication message."""
+        from aivory_monitor import __version__
+
         runtime_info = self.config.get_runtime_info()
         payload = {
             'api_key': self.config.api_key,
             'agent_id': self.config.agent_id,
             'hostname': self.config.hostname,
             'environment': self.config.environment,
-            'agent_version': '1.0.2',
+            'agent_version': __version__,
             **runtime_info,
         }
         message = {
@@ -241,17 +264,18 @@ class BackendConnection:
         self._authenticated = True
         if self.config.debug:
             print('[AIVory Monitor] Agent registered')
-        # Flush queued messages
-        while not self._message_queue.empty():
-            try:
-                queued = self._message_queue.get_nowait()
+        # Flush queued messages under lock to prevent concurrent send races
+        with self._ws_lock:
+            while not self._message_queue.empty():
                 try:
-                    self._ws.send(queued)
-                except Exception as e:
-                    if self.config.debug:
-                        print(f'[AIVory Monitor] Error sending queued message: {e}')
-            except queue.Empty:
-                break
+                    queued = self._message_queue.get_nowait()
+                    try:
+                        self._ws.send(queued)
+                    except Exception as e:
+                        if self.config.debug:
+                            print(f'[AIVory Monitor] Error sending queued message: {e}')
+                except queue.Empty:
+                    break
 
     def _handle_error(self, payload: dict[str, Any]) -> None:
         """Handle error from backend."""
@@ -259,9 +283,8 @@ class BackendConnection:
         message = payload.get('message', 'Unknown error')
         print(f'[AIVory Monitor] Backend error: {code} - {message}')
         if code in ('auth_error', 'invalid_api_key'):
-            print('[AIVory Monitor] Authentication failed, disabling reconnect')
-            self._max_reconnect_attempts = 0
-            self.disconnect()
+            print('[AIVory Monitor] Authentication failed — stopping reconnection')
+            self._shutdown.set()
 
     def _handle_set_breakpoint(self, payload: dict[str, Any]) -> None:
         """Handle set breakpoint command."""
@@ -273,12 +296,12 @@ class BackendConnection:
         if self._breakpoint_callback:
             self._breakpoint_callback('remove', payload)
 
-    def _heartbeat_loop(self) -> None:
-        """Send periodic heartbeats."""
-        while not self._shutdown.is_set():
+    def _heartbeat_loop(self, stop: threading.Event) -> None:
+        """Send periodic heartbeats. Each connection gets its own stop event."""
+        while not self._shutdown.is_set() and not stop.is_set():
             if self._connected and self._authenticated:
                 self._send('heartbeat', {
                     'timestamp': int(time.time() * 1000),
                     'agent_id': self.config.agent_id,
                 })
-            self._shutdown.wait(30.0)
+            stop.wait(30.0)

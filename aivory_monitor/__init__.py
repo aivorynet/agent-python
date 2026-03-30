@@ -18,10 +18,12 @@ Usage:
         aivory_monitor.capture_exception(e)
 """
 
+from __future__ import annotations
+
 from .config import AgentConfig
 from .agent import AIVoryAgent
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 __all__ = [
     'init',
     'shutdown',
@@ -50,13 +52,13 @@ def init(
 
     Args:
         api_key: AIVory API key (or set AIVORY_API_KEY env var)
-        backend_url: Backend WebSocket URL (default: wss://api.aivory.net/monitor/agent)
+        backend_url: Backend WebSocket URL (default: wss://api.aivory.net/ws/agent)
         environment: Environment name (default: production)
         sampling_rate: Exception sampling rate 0.0-1.0 (default: 1.0)
         max_capture_depth: Maximum depth for variable capture (default: 3)
         max_string_length: Maximum string length to capture (default: 1000)
         max_collection_size: Maximum collection elements to capture (default: 100)
-        enable_breakpoints: Enable breakpoint support (default: True)
+        enable_breakpoints: Enable breakpoint support via sys.settrace (default: False)
         debug: Enable debug logging (default: False)
     """
     global _agent

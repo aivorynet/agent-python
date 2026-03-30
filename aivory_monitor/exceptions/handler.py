@@ -26,6 +26,7 @@ class ExceptionHandler:
         self._installed = False
         self._original_excepthook: ExceptHookType | None = None
         self._original_unraisablehook: Callable | None = None
+        self._original_threading_excepthook: Callable | None = None
 
     def install(self) -> None:
         """Install exception hooks."""
@@ -41,6 +42,12 @@ class ExceptionHandler:
         sys.excepthook = self._excepthook
         if hasattr(sys, 'unraisablehook'):
             sys.unraisablehook = self._unraisablehook
+
+        # Hook threading exceptions (Python 3.8+)
+        import threading
+        if hasattr(threading, 'excepthook'):
+            self._original_threading_excepthook = threading.excepthook
+            threading.excepthook = self._threading_excepthook
 
         self._installed = True
 
@@ -58,6 +65,10 @@ class ExceptionHandler:
 
         if self._original_unraisablehook and hasattr(sys, 'unraisablehook'):
             sys.unraisablehook = self._original_unraisablehook
+
+        import threading
+        if self._original_threading_excepthook and hasattr(threading, 'excepthook'):
+            threading.excepthook = self._original_threading_excepthook
 
         self._installed = False
 
@@ -135,3 +146,35 @@ class ExceptionHandler:
         # Call original hook
         if self._original_unraisablehook:
             self._original_unraisablehook(unraisable)
+
+    def _threading_excepthook(self, args: object) -> None:
+        """Handle uncaught exceptions in threads (Python 3.8+)."""
+        try:
+            exc_value = getattr(args, 'exc_value', None)
+            if exc_value is not None and self.config.should_sample():
+                exc_tb = getattr(args, 'exc_traceback', None)
+                if exc_tb is not None:
+                    exc_value.__traceback__ = exc_tb
+
+                frame = None
+                tb = exc_tb
+                while tb is not None:
+                    frame = tb.tb_frame
+                    tb = tb.tb_next
+
+                capture = self._capture_builder.capture(
+                    exc_value,
+                    context={
+                        'origin': 'thread',
+                        'thread': str(getattr(args, 'thread', None)),
+                    },
+                    frame=frame,
+                )
+                self.connection.send_exception(capture)
+        except Exception as e:
+            if self.config.debug:
+                print(f'[AIVory Monitor] Error capturing thread exception: {e}')
+
+        # Call original hook
+        if self._original_threading_excepthook:
+            self._original_threading_excepthook(args)

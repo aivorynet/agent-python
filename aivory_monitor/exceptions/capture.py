@@ -6,7 +6,7 @@ import hashlib
 import os
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from types import FrameType
 from typing import Any, TYPE_CHECKING
 
@@ -128,7 +128,7 @@ class ExceptionCaptureBuilder:
                 **(context or {}),
                 'user': self.config.get_user(),
             },
-            captured_at=datetime.utcnow().isoformat() + 'Z',
+            captured_at=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         )
 
     def _extract_stack_trace(self, exception: BaseException) -> list[StackFrameInfo]:
