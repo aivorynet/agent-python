@@ -248,6 +248,8 @@ class BackendConnection:
                 self._handle_registered(msg)
             elif msg_type == 'error':
                 self._handle_error(msg.get('payload', {}))
+            elif msg_type == 'heartbeat_ack':
+                pass
             elif msg_type == 'set_breakpoint':
                 self._handle_set_breakpoint(msg.get('payload', {}))
             elif msg_type == 'remove_breakpoint':
