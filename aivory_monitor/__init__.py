@@ -23,7 +23,7 @@ from __future__ import annotations
 from .config import AgentConfig
 from .agent import AIVoryAgent
 
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 __all__ = [
     'init',
     'shutdown',
